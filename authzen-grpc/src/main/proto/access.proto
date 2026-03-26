@@ -1,0 +1,113 @@
+// Source: https://github.com/authzen/access (buf.build/authzen/access v1.0.1)
+// Simplified for gRPC stub generation (gateway/OpenAPI annotations removed).
+
+syntax = "proto3";
+
+package authzen.access.v1;
+
+import "google/protobuf/struct.proto";
+
+option java_package = "com.dataversation.authzen.grpc.generated";
+option java_multiple_files = true;
+
+service Access {
+  rpc Evaluation(EvaluationRequest) returns (EvaluationResponse);
+  rpc Evaluations(EvaluationsRequest) returns (EvaluationsResponse);
+  rpc SubjectSearch(SubjectSearchRequest) returns (SubjectSearchResponse);
+  rpc ResourceSearch(ResourceSearchRequest) returns (ResourceSearchResponse);
+  rpc ActionSearch(ActionSearchRequest) returns (ActionSearchResponse);
+}
+
+message EvaluationRequest {
+  Subject subject = 1;
+  Action action = 2;
+  Resource resource = 3;
+  optional google.protobuf.Struct context = 4;
+}
+
+message EvaluationResponse {
+  bool decision = 1;
+  google.protobuf.Struct context = 2;
+}
+
+message EvaluationsRequest {
+  Subject subject = 1;
+  Action action = 2;
+  Resource resource = 3;
+  optional google.protobuf.Struct context = 4;
+  optional google.protobuf.Struct options = 5;
+  repeated EvaluationRequest evaluations = 6;
+}
+
+message EvaluationsResponse {
+  repeated EvaluationResponse evaluations = 1;
+}
+
+message SubjectSearchRequest {
+  Subject subject = 1;
+  Action action = 2;
+  Resource resource = 3;
+  google.protobuf.Struct context = 4;
+  PaginationRequest page = 10;
+}
+
+message SubjectSearchResponse {
+  repeated Subject results = 1;
+  PaginationResponse page = 10;
+}
+
+message ResourceSearchRequest {
+  Subject subject = 1;
+  Action action = 2;
+  Resource resource = 3;
+  google.protobuf.Struct context = 4;
+  PaginationRequest page = 10;
+}
+
+message ResourceSearchResponse {
+  repeated Resource results = 1;
+  PaginationResponse page = 10;
+}
+
+message ActionSearchRequest {
+  Subject subject = 1;
+  Action action = 2;
+  Resource resource = 3;
+  google.protobuf.Struct context = 4;
+  PaginationRequest page = 10;
+}
+
+message ActionSearchResponse {
+  repeated Action results = 1;
+  PaginationResponse page = 10;
+}
+
+message Subject {
+  string type = 1;
+  string id = 2;
+  optional google.protobuf.Struct properties = 3;
+}
+
+message Action {
+  string name = 1;
+  optional google.protobuf.Struct properties = 2;
+}
+
+message Resource {
+  string type = 1;
+  string id = 2;
+  optional google.protobuf.Struct properties = 3;
+}
+
+message PaginationRequest {
+  optional string token = 1;
+  optional int32 limit = 2;
+  optional google.protobuf.Struct properties = 3;
+}
+
+message PaginationResponse {
+  string next_token = 1;
+  optional int64 count = 2;
+  optional int64 total = 3;
+  optional google.protobuf.Struct properties = 4;
+}

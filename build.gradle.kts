@@ -8,7 +8,7 @@ plugins {
 
 allprojects {
     group = "com.dataversation.authzen"
-    version = "0.2.0-SNAPSHOT"
+    version = "0.2.0"
 
     repositories {
         mavenCentral()

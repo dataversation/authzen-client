@@ -48,6 +48,14 @@ class AuthZenGrpcAccessService private constructor(
      * @param useTls whether to use TLS (default: false)
      * @param sslSocketFactory optional custom SSL socket factory (e.g. for self-signed certs)
      */
+    /**
+     * Create with a target string.
+     * @param target gRPC target (e.g. "localhost:9292")
+     * @param useTls whether to use TLS (default: false)
+     * @param sslSocketFactory optional custom SSL socket factory (e.g. for self-signed certs).
+     *   When provided with useTls=true, hostname verification is disabled to support
+     *   self-signed certificates where the CN/SAN may not match the target hostname.
+     */
     constructor(
         target: String,
         useTls: Boolean = false,
@@ -56,9 +64,10 @@ class AuthZenGrpcAccessService private constructor(
         when {
             useTls && sslSocketFactory != null -> {
                 val parts = target.split(":")
-                OkHttpChannelBuilder.forAddress(parts[0], parts[1].toInt())
+                OkHttpChannelBuilder.forAddress(parts[0], parts.getOrNull(1)?.toIntOrNull() ?: 443)
                     .useTransportSecurity()
                     .sslSocketFactory(sslSocketFactory)
+                    .hostnameVerifier { _, _ -> true }
                     .build()
             }
             useTls -> ManagedChannelBuilder.forTarget(target).build()

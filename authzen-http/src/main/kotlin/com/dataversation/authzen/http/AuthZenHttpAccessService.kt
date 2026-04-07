@@ -4,6 +4,7 @@
  */
 package com.dataversation.authzen.http
 
+import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.PropertyNamingStrategies
@@ -46,6 +47,7 @@ class AuthZenHttpAccessService(
     private val objectMapper: ObjectMapper = jacksonObjectMapper().apply {
         configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
         propertyNamingStrategy = PropertyNamingStrategies.SNAKE_CASE
+        setSerializationInclusion(JsonInclude.Include.NON_NULL)
     }
 
     private val jsonMediaType = "application/json".toMediaType()
@@ -82,15 +84,15 @@ class AuthZenHttpAccessService(
                     val metadata = objectMapper.readValue<AuthZenMetadata>(body)
                     LOG.info("Discovered AuthZEN PDP endpoints from $metadataUrl")
                     AuthZenEndpoints(
-                        evaluationUrl = metadata.accessEvaluationEndpoint
+                        evaluationUrl = rebaseUrl(metadata.accessEvaluationEndpoint)
                             ?: defaultUrl("access/v1/evaluation"),
-                        evaluationsUrl = metadata.accessEvaluationsEndpoint
+                        evaluationsUrl = rebaseUrl(metadata.accessEvaluationsEndpoint)
                             ?: defaultUrl("access/v1/evaluations"),
-                        searchActionUrl = metadata.searchActionEndpoint
+                        searchActionUrl = rebaseUrl(metadata.searchActionEndpoint)
                             ?: defaultUrl("access/v1/search/action"),
-                        searchSubjectUrl = metadata.searchSubjectEndpoint
+                        searchSubjectUrl = rebaseUrl(metadata.searchSubjectEndpoint)
                             ?: defaultUrl("access/v1/search/subject"),
-                        searchResourceUrl = metadata.searchResourceEndpoint
+                        searchResourceUrl = rebaseUrl(metadata.searchResourceEndpoint)
                             ?: defaultUrl("access/v1/search/resource")
                     )
                 } else {
@@ -110,6 +112,22 @@ class AuthZenHttpAccessService(
         }
     }
 
+    /**
+     * Rebase a discovered absolute URL onto the configured [baseUrl].
+     * PDPs may advertise endpoints with their internal hostname (e.g. localhost:9393),
+     * but the client should always use the configured baseUrl for connectivity.
+     * Extracts just the path component and appends it to baseUrl.
+     */
+    private fun rebaseUrl(discoveredUrl: String?): String? {
+        discoveredUrl ?: return null
+        return try {
+            val path = java.net.URI(discoveredUrl).path
+            "${baseUrl.trimEnd('/')}$path"
+        } catch (_: Exception) {
+            discoveredUrl
+        }
+    }
+
     private fun defaultUrl(path: String) = "${baseUrl.trimEnd('/')}/$path"
 
     private fun defaultEndpoints() = AuthZenEndpoints(
@@ -122,16 +140,20 @@ class AuthZenHttpAccessService(
 
     private inline fun <reified T> post(url: String, body: Any): T {
         val jsonBody = objectMapper.writeValueAsString(body)
+        LOG.fine { "AuthZEN request to $url: $jsonBody" }
         val request = Request.Builder()
             .url(url)
             .post(jsonBody.toRequestBody(jsonMediaType))
             .build()
         val response = httpClient.newCall(request).execute()
         if (!response.isSuccessful) {
+            val responseBody = response.body?.string()
             throw AuthZenHttpException(
                 statusCode = response.code,
-                message = "AuthZEN PDP request to $url failed: ${response.code} ${response.message}",
-                responseBody = response.body?.string()
+                message = "AuthZEN PDP request to $url failed: ${response.code} ${response.message}" +
+                    "\n  Request:  $jsonBody" +
+                    "\n  Response: $responseBody",
+                responseBody = responseBody
             )
         }
         return objectMapper.readValue(
